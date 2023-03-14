@@ -6,27 +6,27 @@ import { User } from "../model/user.model";
 
 const router = Router();
 
-router.post("/", userController.create);
+router.post("/", userMiddleware.isValidCreate, userController.create);
 
-router.get("/", userMiddleware.isUserValidCreate, userController.getAll);
+router.get("/", userController.getAll);
 
 router.get(
   "/:userId",
-  userMiddleware.isUserIdValid,
+  userMiddleware.isIdValid,
   userMiddleware.getByIdAndThrow,
   userController.getById
 );
 
 router.put(
   "/:userId",
-  userMiddleware.isUserIdValid,
-  userMiddleware.isUserValidUpdate,
+  userMiddleware.isIdValid,
+  userMiddleware.isValidUpdate,
   userController.update
 );
 
 router.delete(
   "/:userId",
-  userMiddleware.isUserIdValid,
+  userMiddleware.isIdValid,
   async (req: Request, res: Response) => {
     const { userId } = req.params;
 

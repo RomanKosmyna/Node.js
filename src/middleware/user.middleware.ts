@@ -3,6 +3,7 @@ import { isObjectIdOrHexString } from "mongoose";
 
 import { ApiError } from "../error/api.error";
 import { User } from "../model/user.model";
+import { IRequest } from "../type";
 import { UserValidator } from "../validator/user.validator";
 
 class UserMiddleware {
@@ -27,7 +28,57 @@ class UserMiddleware {
     }
   }
 
-  public async isUserIdValid(
+  public getDynamicallyAndThrow(
+    fieldName: string,
+    from = "body",
+    dbField = fieldName
+  ) {
+    return async (req: IRequest, res: Response, next: NextFunction) => {
+      try {
+        const fieldValue = req[from][fieldName];
+
+        const user = await User.findOne({ [dbField]: fieldValue });
+
+        if (user) {
+          next(
+            new ApiError(
+              `User with ${fieldName} ${fieldValue} already exists`,
+              409
+            )
+          );
+        }
+        next();
+      } catch (e) {
+        next(e);
+      }
+    };
+  }
+
+  public getDynamicallyOrThrow(
+    fieldName: string,
+    from = "body",
+    dbField = fieldName
+  ) {
+    return async (req: IRequest, res: Response, next: NextFunction) => {
+      try {
+        const fieldValue = req[from][fieldName];
+        const user = await User.findOne({ [dbField]: fieldValue });
+
+        if (!user) {
+          next(new ApiError(`User not found`, 422));
+        }
+
+        req.res.locals = user;
+
+        next();
+      } catch (e) {
+        next(e);
+      }
+    };
+  }
+
+  // Validators
+  public async isIdValid(
     req: Request,
     res: Response,
     next: NextFunction
@@ -42,18 +93,16 @@ class UserMiddleware {
     }
   }
 
-  public async isUserValidCreate(
+  public async isValidCreate(
     req: Request,
     res: Response,
     next: NextFunction
   ): Promise<void> {
     try {
       const { error, value } = UserValidator.createUser.validate(req.body);
-
       if (error) {
         return next(new ApiError(error.message, 400));
       }
-
       req.body = value;
       next();
     } catch (e) {
@@ -61,7 +110,7 @@ class UserMiddleware {
     }
   }
 
-  public async isUserValidUpdate(
+  public async isValidUpdate(
     req: Request,
     res: Response,
     next: NextFunction
@@ -74,6 +123,24 @@ class UserMiddleware {
       }
 
       req.body = value;
+      next();
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  public async isValidLogin(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { error } = UserValidator.loginUser.validate(req.body);
+
+      if (error) {
+        return next(new ApiError(error.message, 400));
+      }
+
       next();
     } catch (e) {
       next(e);
